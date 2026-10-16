@@ -28,6 +28,8 @@
 make test-up      # собрать и поднять тестовый стенд
 make loadgen      # 60 секунд трафика (DURATION=120 make loadgen)
 make pytest       # тесты внутри контейнера
+make migrate      # применить миграции Alembic (идемпотентно; также выполняется при старте app)
+make migration MSG="add column"   # сгенерировать новую ревизию по изменениям моделей
 open http://localhost:3000   # Grafana → папка test.logger
 open http://localhost:8000/docs
 open http://localhost:8081      # Adminer: PostgreSQL / db / app / claude_ro (или app для записи)
@@ -37,6 +39,9 @@ SQL-наблюдаемость (только тест): `pg_stat_statements` (т
 в Loki (`{service="db"} |= "duration:"`), SQL приложения с `request_id` (`SQL_LOG_LEVEL=INFO`) и метрики `pg_stat_statements_*`.
 `make test-up` идемпотентно создаёт расширение одноразовым сервисом `db-init`, поэтому существующий том сохраняется
 и `make test-reset` не нужен (после смены `shared_preload_libraries` контейнер `db` пересоздаётся автоматически).
+
+Схема БД ведётся миграциями Alembic (`src/app/migrations/`). При старте `app` выполняет `python -m app.migrate upgrade`;
+для БД, созданной раньше через `create_all`, базовая ревизия проставляется автоматически (`stamp`), данные сохраняются.
 
 Прод:
 ```bash

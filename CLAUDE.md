@@ -74,7 +74,15 @@
 - `src/app/metrics.py` — метрики Prometheus
 - `deploy/` — конфиги Loki, Alloy, Prometheus, Grafana (в `datasources-test` — с PostgreSQL), init-скрипт БД для теста
 - `deploy/prometheus/scrape.d-test|prod/cadvisor.yml` — job cAdvisor со своим фильтром compose-проекта для каждой среды (изоляция test/prod на одном Docker-хосте)
-- Таблицы создаются через `Base.metadata.create_all` при старте (миграций пока нет).
+- `src/app/migrate.py`, `src/app/migrations/` — миграции Alembic (без `alembic.ini`, конфиг собирается в коде; URL — из `DATABASE_URL`).
+- Схема БД управляется миграциями Alembic; `create_all` используется только в `tests/conftest.py` (SQLite in-memory).
+
+## Миграции
+
+- Контейнер `app` (test и prod) при старте выполняет `python -m app.migrate upgrade`, затем uvicorn. Если таблицы есть, а `alembic_version` нет (БД создана старым `create_all`), базовая ревизия `0001` проставляется через `stamp`, затем `upgrade head`.
+- Изменили модели в `src/app/models.py` → `make migration MSG="описание"` (autogenerate внутри тестового контейнера, файл появится в `src/app/migrations/versions/`) → **вычитать и поправить руками** → `make migrate` (или перезапуск `app`) → `make pytest`.
+- `make migrate` идемпотентен. Миграции идут от пользователя `app`, поэтому `claude_ro` получает `SELECT` на новые таблицы через `ALTER DEFAULT PRIVILEGES`.
+- Миграции должны работать и на SQLite (`render_as_batch`): `tests/test_migrations.py` проверяет, что `upgrade head` не расходится с моделями. Для `server_default` используй `sa.func.now()`, а не `sa.text("now()")`.
 
 ## Соглашения
 
