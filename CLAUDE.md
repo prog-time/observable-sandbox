@@ -18,13 +18,14 @@
 
 ## Как смотреть систему (тестовая среда)
 
-Логи, метрики и данные БД доступны через MCP-сервер **`grafana-test`** (mcp-grafana, `.mcp.json`).
+Логи, метрики, трейсы и данные БД доступны через MCP-сервер **`grafana-test`** (mcp-grafana, `.mcp.json`).
 Он работает только в тестовой сборке — сначала `make test-up`.
 
 | Что | Инструмент | Datasource UID |
 |---|---|---|
 | Логи | `query_loki_logs`, `query_loki_patterns`, `list_loki_label_values` | `loki` |
 | Метрики | `query_prometheus`, `query_prometheus_histogram`, `list_prometheus_metric_names` | `prometheus` |
+| Трейсы | `search_tempo_traces`, `get_tempo_trace`, `query_tempo_metrics`, `list_tempo_attribute_names`, `list_tempo_attribute_values`, `get_tempo_traceql_docs`, `diff_tempo_traces` | `tempo` |
 | БД | `query_sql`, `list_sql_tables`, `describe_sql_table` | `postgres` |
 | Дашборды | `search_dashboards`, `get_dashboard_summary` | — |
 
@@ -34,6 +35,10 @@
 - Метрики контейнеров (cAdvisor, job `cadvisor`): `container_cpu_usage_seconds_total`, `container_memory_working_set_bytes` / `container_memory_usage_bytes` / `container_memory_rss`, `container_network_receive_bytes_total` / `container_network_transmit_bytes_total`, `container_fs_reads_bytes_total` / `container_fs_writes_bytes_total`, `container_blkio_device_usage_total`, `container_spec_memory_limit_bytes`, `container_oom_events_total`, `container_pressure_*`. Фильтр по сервису compose — метка `service` (app, db, loki, alloy, prometheus, grafana, …); в тестовый Prometheus попадают только контейнеры проекта `logger-test` (прод отфильтрован).
   Примеры PromQL: `sum by (service) (rate(container_cpu_usage_seconds_total{service!=""}[1m]))` (ядра CPU), `container_memory_working_set_bytes{service="db"}` (память, байты).
   Docker Desktop (macOS): нет `container_fs_usage_bytes` / `container_fs_limit_bytes` (размер файловой системы контейнера); `container_fs_reads/writes_bytes_total` и `container_blkio_*` есть. На Linux-хосте эти метрики, как ожидается, доступны (не проверялось). UI cAdvisor для человека: http://localhost:8082.
+- Трейсы (Tempo): путь `app` → Alloy (OTLP/HTTP `http://alloy:4318`, gRPC `4317`; наружу не опубликованы) → Tempo (`tempo:4317`, HTTP API `127.0.0.1:3200` в тесте, хранилище — локальный диск, `TEMPO_RETENTION`). В тесте сэмплируется 100% (`OTEL_TRACES_SAMPLER=always_on`), в проде `parentbased_traceidratio` с долей 0.1. Сервис в трейсах — `service.name=app`, окружение — `deployment.environment`.
+  Примеры TraceQL для `search_tempo_traces`: `{ resource.service.name = "app" && duration > 500ms }`, `{ span.request_id = "<id>" }`, `{ status = error }`. Трейс целиком: `get_tempo_trace` с аргументом `trace_id` (32 hex; Tempo отбрасывает ведущие нули в `traceID` результатов поиска, при передаче дополняйте нулями до 32 символов).
+  Лог → трейс: в JSON-логах `trace_id`/`span_id` → `get_tempo_trace(trace_id=...)`. В Grafana у логов Loki поле `TraceID` (derived field) ведёт в Tempo в один клик, а из спана можно перейти к логам (`tracesToLogsV2`, фильтр по trace id, метка `service`).
+  В приложении: трассировка включается только при заданном `OTEL_EXPORTER_OTLP_ENDPOINT` (`src/app/tracing.py`; в pytest выключена), `/health` и `/metrics` не трейсятся. `request_id` — атрибут серверного спана, поэтому от заголовка `x-request-id` к трейсу: `search_tempo_traces` с `{ span.request_id = "<id>" }`. От лога с ошибкой к трейсу: `query_loki_logs` `{service="app", level="ERROR"}` → поле `trace_id` строки → `get_tempo_trace(datasourceUid="tempo", trace_id=...)` (серверный спан со статусом error + SQL-спаны). Новые данные в Tempo появляются через ~10 с.
 - `query_prometheus` с `queryType: instant` требует `endTime: "now"`.
 - `query_sql` дописывает `LIMIT 100`. БД доступна только на чтение (роль `claude_ro`), менять данные — только через API приложения.
 - Каждый ответ API содержит заголовок `x-request-id` — по нему в Loki видна вся цепочка запроса.
@@ -70,9 +75,10 @@
 - `src/app/main.py` — фабрика приложения, middleware логирования/метрик, `/health`, `/metrics`
 - `src/app/api/` — роуты: `customers`, `orders`, `debug` (только при `ENABLE_DEBUG_ENDPOINTS=true`)
 - `src/app/models.py` — модели и допустимые переходы статусов заказа
-- `src/app/logging_config.py` — JSON-логи в stdout, `request_id` через contextvar
+- `src/app/logging_config.py` — JSON-логи в stdout, `request_id` через contextvar, `trace_id`/`span_id` из активного спана
+- `src/app/tracing.py` — OpenTelemetry: TracerProvider, OTLP-экспорт, инструментация FastAPI и SQLAlchemy
 - `src/app/metrics.py` — метрики Prometheus
-- `deploy/` — конфиги Loki, Alloy, Prometheus, Grafana (в `datasources-test` — с PostgreSQL), init-скрипт БД для теста
+- `deploy/` — конфиги Loki, Tempo, Alloy (в т.ч. OTLP → Tempo), Prometheus, Grafana (в `datasources-test` — с PostgreSQL), init-скрипт БД для теста
 - `deploy/prometheus/scrape.d-test|prod/cadvisor.yml` — job cAdvisor со своим фильтром compose-проекта для каждой среды (изоляция test/prod на одном Docker-хосте)
 - `src/app/migrate.py`, `src/app/migrations/` — миграции Alembic (без `alembic.ini`, конфиг собирается в коде; URL — из `DATABASE_URL`).
 - Схема БД управляется миграциями Alembic; `create_all` используется только в `tests/conftest.py` (SQLite in-memory).

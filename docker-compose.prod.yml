@@ -1,5 +1,5 @@
 # ПРОД среда. Наружу открыто только приложение; Grafana — только на localhost.
-# БД, Loki, Prometheus доступны лишь внутри docker-сети. Роли claude_ro и debug-эндпоинтов нет.
+# БД, Loki, Tempo, Prometheus доступны лишь внутри docker-сети. Роли claude_ro и debug-эндпоинтов нет.
 
 services:
   app:
@@ -19,6 +19,9 @@ services:
     restart: unless-stopped
 
   alloy:
+    restart: unless-stopped
+
+  tempo:
     restart: unless-stopped
 
   prometheus:

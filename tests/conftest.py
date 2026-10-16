@@ -1,3 +1,8 @@
+import os
+
+# тесты не должны слать трейсы наружу, даже если контейнер запущен с OTLP-эндпоинтом
+os.environ.pop("OTEL_EXPORTER_OTLP_ENDPOINT", None)
+
 import pytest
 from fastapi.testclient import TestClient
 

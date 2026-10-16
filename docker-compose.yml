@@ -16,8 +16,15 @@ services:
       SQL_LOG_LEVEL: ${SQL_LOG_LEVEL:-WARNING}
       ENABLE_DEBUG_ENDPOINTS: ${ENABLE_DEBUG_ENDPOINTS:-false}
       DATABASE_URL: postgresql+psycopg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+      # Трассировка: OTLP/HTTP в Alloy, дальше Alloy -> Tempo
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://alloy:4318
+      OTEL_SERVICE_NAME: app
+      OTEL_TRACES_SAMPLER: ${OTEL_TRACES_SAMPLER:-parentbased_traceidratio}
+      OTEL_TRACES_SAMPLER_ARG: ${OTEL_TRACES_SAMPLER_ARG:-0.1}
+      OTEL_RESOURCE_ATTRIBUTES: deployment.environment=${APP_ENV}
     depends_on:
       db: { condition: service_healthy }
+      alloy: { condition: service_started }
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health', timeout=3)"]
       interval: 10s
@@ -76,7 +83,19 @@ services:
       - ./deploy/alloy/config.alloy:/etc/alloy/config.alloy:ro
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - alloy-data:/var/lib/alloy/data
-    depends_on: [loki]
+    depends_on: [loki, tempo]
+    logging: *logging
+
+  tempo:
+    # Хранилище трейсов. Образ distroless (нет shell/wget) — healthcheck не задан.
+    # Принимает OTLP gRPC :4317 только от Alloy внутри сети, HTTP API :3200 (Grafana, метрики).
+    image: grafana/tempo:2.10.8
+    command: ["-config.file=/etc/tempo/tempo.yml", "-config.expand-env=true"]
+    environment:
+      TEMPO_RETENTION: ${TEMPO_RETENTION:-168h}
+    volumes:
+      - ./deploy/tempo/tempo.yml:/etc/tempo/tempo.yml:ro
+      - tempo-data:/var/tempo
     logging: *logging
 
   prometheus:
@@ -130,12 +149,13 @@ services:
       - ./deploy/grafana/provisioning/datasources:/etc/grafana/provisioning/datasources:ro
       - ./deploy/grafana/dashboards:/var/lib/grafana/dashboards:ro
       - grafana-data:/var/lib/grafana
-    depends_on: [prometheus, loki]
+    depends_on: [prometheus, loki, tempo]
     logging: *logging
 
 volumes:
   db-data:
   loki-data:
+  tempo-data:
   alloy-data:
   prometheus-data:
   grafana-data:
