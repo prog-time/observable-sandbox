@@ -31,6 +31,9 @@
 - Метки логов: `service` (app, db, loki, …), `level` (DEBUG/INFO/WARNING/ERROR), `logger`, `project`, `env`.
   Примеры LogQL: `{service="app", level="ERROR"}`, `{service="app"} | json | duration_ms > 1000`, `{project="logger-test"} |= "<request_id>"`.
 - Метрики приложения: `http_requests_total{route,status}`, `http_request_duration_seconds`, `orders_created_total`, `order_status_changes_total`; БД — `pg_*`.
+- Метрики контейнеров (cAdvisor, job `cadvisor`): `container_cpu_usage_seconds_total`, `container_memory_working_set_bytes` / `container_memory_usage_bytes` / `container_memory_rss`, `container_network_receive_bytes_total` / `container_network_transmit_bytes_total`, `container_fs_reads_bytes_total` / `container_fs_writes_bytes_total`, `container_blkio_device_usage_total`, `container_spec_memory_limit_bytes`, `container_oom_events_total`, `container_pressure_*`. Фильтр по сервису compose — метка `service` (app, db, loki, alloy, prometheus, grafana, …); в тестовый Prometheus попадают только контейнеры проекта `logger-test` (прод отфильтрован).
+  Примеры PromQL: `sum by (service) (rate(container_cpu_usage_seconds_total{service!=""}[1m]))` (ядра CPU), `container_memory_working_set_bytes{service="db"}` (память, байты).
+  Docker Desktop (macOS): нет `container_fs_usage_bytes` / `container_fs_limit_bytes` (размер файловой системы контейнера); `container_fs_reads/writes_bytes_total` и `container_blkio_*` есть. На Linux-хосте эти метрики, как ожидается, доступны (не проверялось). UI cAdvisor для человека: http://localhost:8082.
 - `query_prometheus` с `queryType: instant` требует `endTime: "now"`.
 - `query_sql` дописывает `LIMIT 100`. БД доступна только на чтение (роль `claude_ro`), менять данные — только через API приложения.
 - Каждый ответ API содержит заголовок `x-request-id` — по нему в Loki видна вся цепочка запроса.
@@ -70,6 +73,7 @@
 - `src/app/logging_config.py` — JSON-логи в stdout, `request_id` через contextvar
 - `src/app/metrics.py` — метрики Prometheus
 - `deploy/` — конфиги Loki, Alloy, Prometheus, Grafana (в `datasources-test` — с PostgreSQL), init-скрипт БД для теста
+- `deploy/prometheus/scrape.d-test|prod/cadvisor.yml` — job cAdvisor со своим фильтром compose-проекта для каждой среды (изоляция test/prod на одном Docker-хосте)
 - Таблицы создаются через `Base.metadata.create_all` при старте (миграций пока нет).
 
 ## Соглашения
