@@ -9,12 +9,40 @@ services:
     ports: ["127.0.0.1:8000:8000"]
 
   db:
+    # pg_stat_statements требует shared_preload_libraries (нужен рестарт/пересоздание db);
+    # log_min_duration_statement пишет медленные запросы в stdout -> Loki ({service="db"})
+    command:
+      - postgres
+      - -c
+      - shared_preload_libraries=pg_stat_statements
+      - -c
+      - pg_stat_statements.track=all
+      - -c
+      - log_min_duration_statement=100ms
     environment:
       CLAUDE_RO_PASSWORD: ${CLAUDE_RO_PASSWORD:?}
     volumes:
       # создаёт read-only роль claude_ro (только в тесте)
       - ./deploy/postgres/init-test:/docker-entrypoint-initdb.d:ro
     ports: ["127.0.0.1:5432:5432"]
+
+  # Одноразово и идемпотентно создаёт расширение pg_stat_statements на уже существующем томе
+  # (init-скрипты повторно не запускаются). Данные не затрагиваются.
+  db-init:
+    image: postgres:16-alpine
+    restart: "no"
+    environment:
+      PGHOST: db
+      PGUSER: ${POSTGRES_USER}
+      PGPASSWORD: ${POSTGRES_PASSWORD}
+      PGDATABASE: ${POSTGRES_DB}
+    command: ["psql", "-v", "ON_ERROR_STOP=1", "-c", "CREATE EXTENSION IF NOT EXISTS pg_stat_statements;"]
+    depends_on:
+      db: { condition: service_healthy }
+
+  # Метрики pg_stat_statements_* (в проде коллектор выключен)
+  postgres-exporter:
+    command: ["--collector.stat_statements"]
 
   loki:
     ports: ["127.0.0.1:3100:3100"]

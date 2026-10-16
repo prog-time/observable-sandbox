@@ -35,6 +35,13 @@
 - `query_sql` дописывает `LIMIT 100`. БД доступна только на чтение (роль `claude_ro`), менять данные — только через API приложения.
 - Каждый ответ API содержит заголовок `x-request-id` — по нему в Loki видна вся цепочка запроса.
 - После перезапуска `app` счётчики Prometheus обнуляются. Нет данных → `make loadgen` (60 с трафика с ошибками и медленными запросами).
+- SQL-запросы (только тест):
+  - Статистика: `query_sql` по `pg_stat_statements` (полный текст запросов доступен, `claude_ro` имеет `pg_read_all_stats`), например
+    `SELECT calls, round(mean_exec_time::numeric,2) AS ms, left(query,100) AS q FROM pg_stat_statements ORDER BY total_exec_time DESC` — топ по времени; сортировка по `calls` помогает найти N+1. Сбросить статистику ролью `claude_ro` нельзя.
+  - Медленные запросы (>100ms): `{service="db"} |= "duration:"` в Loki (строки PostgreSQL не JSON, метки `service="db"`).
+  - Все SQL приложения с `request_id` (`SQL_LOG_LEVEL=INFO` в `.env.test`): `{service="app", logger="sqlalchemy.engine.Engine"}`; в проде `WARNING`, запросы не пишутся.
+  - Метрики: `pg_stat_statements_*` (например `pg_stat_statements_calls_total`), коллектор включён только в тесте.
+  - `SHOW ...` через `query_sql` не работает (дописывается `LIMIT`) — используйте `SELECT ... FROM pg_settings`.
 - Состояние контейнеров: `docker compose -p logger-test ps`. Тесты: `make pytest`.
 - Adminer (http://localhost:8081) — веб-интерфейс БД для человека; Claude использует `query_sql`.
 

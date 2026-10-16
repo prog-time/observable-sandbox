@@ -32,6 +32,11 @@ open http://localhost:8000/docs
 open http://localhost:8081      # Adminer: PostgreSQL / db / app / claude_ro (или app для записи)
 ```
 
+SQL-наблюдаемость (только тест): `pg_stat_statements` (топ запросов через `query_sql`), лог запросов дольше 100 мс
+в Loki (`{service="db"} |= "duration:"`), SQL приложения с `request_id` (`SQL_LOG_LEVEL=INFO`) и метрики `pg_stat_statements_*`.
+`make test-up` идемпотентно создаёт расширение одноразовым сервисом `db-init`, поэтому существующий том сохраняется
+и `make test-reset` не нужен (после смены `shared_preload_libraries` контейнер `db` пересоздаётся автоматически).
+
 Прод:
 ```bash
 cp .env.prod.example .env.prod   # задать пароли

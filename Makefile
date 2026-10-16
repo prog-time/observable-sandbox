@@ -7,8 +7,9 @@ help:
 	@grep -E '^[a-z-]+:.*## ' $(MAKEFILE_LIST) | awk -F':.*## ' '{printf "  %-12s %s\n", $$1, $$2}'
 
 # ---------- тестовая среда ----------
-test-up: ## поднять тестовый стенд
-	$(TEST) up -d --build --wait
+test-up: ## поднять тестовый стенд (+ идемпотентно создать pg_stat_statements)
+	$(TEST) run --rm db-init
+	$(TEST) up -d --build --wait --scale db-init=0
 test-down: ## остановить тестовый стенд (данные сохраняются)
 	$(TEST) down
 test-reset: ## остановить и удалить данные тестового стенда

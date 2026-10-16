@@ -8,6 +8,8 @@ class Settings(BaseSettings):
 
     app_env: str = "dev"  # dev | test | prod
     log_level: str = "INFO"
+    # Уровень логгера sqlalchemy.engine: INFO — писать каждый SQL-запрос (в тесте), WARNING — не писать
+    sql_log_level: str = "WARNING"
     database_url: str = "sqlite+pysqlite:///./app.db"
     # Эндпоинты /debug/* для генерации ошибок и задержек. Включать только в тесте.
     enable_debug_endpoints: bool = False
