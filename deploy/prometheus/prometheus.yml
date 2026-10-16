@@ -2,6 +2,10 @@ global:
   scrape_interval: 10s
   evaluation_interval: 10s
 
+# Job cadvisor лежит в scrape.d/ (монтируется своя папка для каждой среды: scrape.d-test / scrape.d-prod)
+scrape_config_files:
+  - /etc/prometheus/scrape.d/*.yml
+
 scrape_configs:
   - job_name: app
     static_configs:
