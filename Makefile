@@ -1,7 +1,7 @@
 TEST = docker compose -p logger-test --env-file .env.test -f docker-compose.yml -f docker-compose.test.yml
 PROD = docker compose -p logger-prod --env-file .env.prod -f docker-compose.yml -f docker-compose.prod.yml
 
-.PHONY: help test-up test-down test-reset test-logs test-ps pytest loadgen prod-up prod-down prod-ps prod-logs
+.PHONY: help test-up test-down test-reset test-logs test-ps pytest loadgen migrate migration prod-up prod-down prod-ps prod-logs
 
 help:
 	@grep -E '^[a-z-]+:.*## ' $(MAKEFILE_LIST) | awk -F':.*## ' '{printf "  %-12s %s\n", $$1, $$2}'
@@ -22,6 +22,12 @@ pytest: ## прогнать тесты внутри тестового конт�
 	$(TEST) exec app pytest -q
 loadgen: ## сгенерировать трафик 60 секунд (DURATION=...)
 	$(TEST) exec app python -m app.loadgen --seconds $(or $(DURATION),60)
+
+migrate: ## применить миграции Alembic в тестовом контейнере (идемпотентно)
+	$(TEST) exec app python -m app.migrate upgrade
+migration: ## новая ревизия по изменениям моделей: make migration MSG="add x"
+	@test -n "$(MSG)" || (echo 'Укажите MSG="описание"' && exit 1)
+	$(TEST) exec app python -m app.migrate revision "$(MSG)"
 
 # ---------- прод ----------
 prod-up: ## поднять прод (нужен .env.prod)
