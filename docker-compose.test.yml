@@ -1,0 +1,66 @@
+# ТЕСТОВАЯ среда. Всё открыто на 127.0.0.1, чтобы Claude Code мог читать логи, метрики и БД.
+
+services:
+  app:
+    volumes:
+      # hot-reload: правки в src/ сразу применяются в контейнере
+      - ./src:/srv/src
+      - ./tests:/srv/tests
+    ports: ["127.0.0.1:8000:8000"]
+
+  db:
+    environment:
+      CLAUDE_RO_PASSWORD: ${CLAUDE_RO_PASSWORD:?}
+    volumes:
+      # создаёт read-only роль claude_ro (только в тесте)
+      - ./deploy/postgres/init-test:/docker-entrypoint-initdb.d:ro
+    ports: ["127.0.0.1:5432:5432"]
+
+  loki:
+    ports: ["127.0.0.1:3100:3100"]
+
+  alloy:
+    ports: ["127.0.0.1:12345:12345"]
+
+  prometheus:
+    ports: ["127.0.0.1:9090:9090"]
+
+  grafana:
+    environment:
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Admin
+      CLAUDE_RO_PASSWORD: ${CLAUDE_RO_PASSWORD:?}
+    volumes:
+      # в тесте Grafana дополнительно видит PostgreSQL (под read-only ролью claude_ro)
+      - ./deploy/grafana/provisioning/datasources-test:/etc/grafana/provisioning/datasources:ro
+    ports: ["127.0.0.1:3000:3000"]
+
+  # MCP-сервер Grafana: через него Claude Code читает логи (Loki), метрики (Prometheus) и БД (SQL).
+  # Есть только в тестовой сборке. Подключение описано в .mcp.json.
+  mcp-grafana:
+    image: grafana/mcp-grafana:1.6.3
+    command:
+      - -t
+      - streamable-http
+      - --address=0.0.0.0:8000
+      - --allowed-hosts=127.0.0.1:8001,localhost:8001
+      - --enabled-tools=search,datasource,prometheus,loki,dashboard,navigation,sql
+      - --disable-write   # без изменения дашбордов, алертов и т.п.
+      - --enable-query    # оставить query_sql: права роли claude_ro и так только на чтение
+    environment:
+      GRAFANA_URL: http://grafana:3000
+      GRAFANA_USERNAME: admin
+      GRAFANA_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:?}
+    depends_on: [grafana]
+    ports: ["127.0.0.1:8001:8000"]
+
+  # Веб-интерфейс для просмотра БД: http://localhost:8081
+  # Вход: PostgreSQL / сервер db / база app / пользователь claude_ro (только чтение) или app (полный доступ).
+  adminer:
+    image: adminer:6.1.1
+    environment:
+      ADMINER_DEFAULT_SERVER: db
+      ADMINER_DESIGN: pepa-linha
+    depends_on:
+      db: { condition: service_healthy }
+    ports: ["127.0.0.1:8081:8080"]

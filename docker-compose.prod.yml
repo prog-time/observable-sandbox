@@ -1,0 +1,32 @@
+# ПРОД среда. Наружу открыто только приложение; Grafana — только на localhost.
+# БД, Loki, Prometheus доступны лишь внутри docker-сети. Роли claude_ro и debug-эндпоинтов нет.
+
+services:
+  app:
+    ports: ["8080:8000"]
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits: { cpus: "1.0", memory: 512M }
+
+  db:
+    restart: unless-stopped
+
+  postgres-exporter:
+    restart: unless-stopped
+
+  loki:
+    restart: unless-stopped
+
+  alloy:
+    restart: unless-stopped
+
+  prometheus:
+    restart: unless-stopped
+
+  grafana:
+    environment:
+      GF_AUTH_ANONYMOUS_ENABLED: "false"
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    ports: ["127.0.0.1:3001:3000"]
+    restart: unless-stopped

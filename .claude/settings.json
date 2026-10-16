@@ -1,0 +1,23 @@
+{
+  "enabledMcpjsonServers": ["grafana-test"],
+  "permissions": {
+    "allow": [
+      "mcp__grafana-test",
+      "Bash(make test-up)",
+      "Bash(make test-down)",
+      "Bash(make test-ps)",
+      "Bash(make pytest)",
+      "Bash(make loadgen:*)",
+      "Bash(docker compose -p logger-test:*)",
+      "Bash(curl -s http://127.0.0.1:8000:*)",
+      "Bash(curl -s http://localhost:8000:*)"
+    ],
+    "deny": [
+      "Read(./.env.prod)",
+      "Edit(./.env.prod)",
+      "Bash(make prod-:*)",
+      "Bash(docker compose -p logger-prod:*)",
+      "Bash(cat .env.prod:*)"
+    ]
+  }
+}

@@ -1,0 +1,23 @@
+# Источники данных тестовой Grafana: те же, что в проде, плюс PostgreSQL.
+apiVersion: 1
+datasources:
+  - name: Prometheus
+    uid: prometheus
+    type: prometheus
+    url: http://prometheus:9090
+    isDefault: true
+  - name: Loki
+    uid: loki
+    type: loki
+    url: http://loki:3100
+  - name: PostgreSQL
+    uid: postgres
+    type: grafana-postgresql-datasource
+    url: db:5432
+    user: claude_ro
+    jsonData:
+      database: app
+      sslmode: disable
+      postgresVersion: 1600
+    secureJsonData:
+      password: $CLAUDE_RO_PASSWORD
