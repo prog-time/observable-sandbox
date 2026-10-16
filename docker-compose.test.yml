@@ -51,7 +51,12 @@ services:
     ports: ["127.0.0.1:12345:12345"]
 
   prometheus:
+    volumes:
+      - ./deploy/prometheus/scrape.d-test:/etc/prometheus/scrape.d:ro
     ports: ["127.0.0.1:9090:9090"]
+
+  cadvisor:
+    ports: ["127.0.0.1:8082:8080"]
 
   grafana:
     environment:

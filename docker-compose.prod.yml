@@ -22,6 +22,11 @@ services:
     restart: unless-stopped
 
   prometheus:
+    volumes:
+      - ./deploy/prometheus/scrape.d-prod:/etc/prometheus/scrape.d:ro
+    restart: unless-stopped
+
+  cadvisor:
     restart: unless-stopped
 
   grafana:
