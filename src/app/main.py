@@ -8,6 +8,7 @@ from fastapi.responses import JSONResponse
 from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
 from sqlalchemy import text
 from sqlalchemy.orm import Session, sessionmaker
+from starlette.routing import Match
 
 from app.api import customers, debug, orders
 from app.config import Settings, get_settings
@@ -16,6 +17,22 @@ from app.logging_config import request_id_var, setup_logging
 from app.metrics import HTTP_LATENCY, HTTP_REQUESTS
 
 logger = logging.getLogger("app")
+
+
+def _resolve_route_path(app: FastAPI, scope) -> str:
+    # scope["route"] выставляет только APIRoute; служебные маршруты Starlette (/docs, /openapi.json) ищем вручную
+    route = scope.get("route")
+    if route:
+        return route.path
+    partial = None
+    for candidate in app.router.routes:
+        match, _ = candidate.matches(scope)
+        if match == Match.FULL:
+            return candidate.path
+        if match == Match.PARTIAL and partial is None:
+            partial = candidate
+    # путь найден, но метод не подходит (405) — всё равно отдаём шаблон
+    return partial.path if partial else "unmatched"
 
 
 def create_app(settings: Settings | None = None) -> FastAPI:
@@ -60,8 +77,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             return response
         finally:
             duration = time.perf_counter() - start
-            route = request.scope.get("route")
-            route_path = route.path if route else "unmatched"
+            route_path = _resolve_route_path(app, request.scope)
             if route_path not in ("/metrics", "/health"):
                 HTTP_REQUESTS.labels(request.method, route_path, str(status)).inc()
                 HTTP_LATENCY.labels(request.method, route_path).observe(duration)
