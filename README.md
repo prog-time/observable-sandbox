@@ -50,6 +50,7 @@ Claude Code ──MCP──> mcp-grafana ──> Grafana (тест) ──> Loki
 2. **`mcp-grafana`** запущен с `--disable-write` (без изменения дашбордов и алертов) и набором инструментов `search,datasource,prometheus,loki,dashboard,navigation,sql`.
 3. **PostgreSQL** подключён в тестовую Grafana под ролью `claude_ro` — только чтение, `statement_timeout=10s`. Запись блокирует сама БД, а не MCP.
 4. **`CLAUDE.md`** описывает инструменты, метки и правила; запуск `make prod-*`, `-p logger-prod` и чтение `.env.prod` запрещены в `.claude/settings.json`.
+   Compose для `logger-test` разрешён только узким списком (`ps`, `logs`, `config`, `top`, `images`, `exec app pytest`); `down -v`, `exec db`, `make test-reset` запрещены, остальное требует подтверждения. Правила префиксные (best-effort), реальная защита — роль `claude_ro`.
 
 Почему прод недоступен не только по правилам: сервиса `mcp-grafana` в прод-сборке нет, прод-Grafana не знает о PostgreSQL и требует пароль, порты БД, Loki и Prometheus не проброшены, роли `claude_ro` нет.
 
