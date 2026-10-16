@@ -1,0 +1,27 @@
+# Версия 2.10.x: ветка 3.x требует Kafka-совместимую очередь (ingest storage), для однобинарного режима с локальным диском она не нужна.
+# Tempo в однобинарном режиме, локальное хранилище. Трейсы приходят из Alloy по OTLP gRPC (tempo:4317).
+# Retention задаётся переменной TEMPO_RETENTION (compose запускает Tempo с -config.expand-env=true).
+stream_over_http_enabled: true
+
+server:
+  http_listen_port: 3200
+  log_level: warn
+
+distributor:
+  receivers:
+    otlp:
+      protocols:
+        grpc:
+          endpoint: 0.0.0.0:4317
+
+compactor:
+  compaction:
+    block_retention: ${TEMPO_RETENTION}
+
+storage:
+  trace:
+    backend: local
+    wal:
+      path: /var/tempo/wal
+    local:
+      path: /var/tempo/blocks
