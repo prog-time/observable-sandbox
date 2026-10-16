@@ -38,6 +38,16 @@
 - Состояние контейнеров: `docker compose -p logger-test ps`. Тесты: `make pytest`.
 - Adminer (http://localhost:8081) — веб-интерфейс БД для человека; Claude использует `query_sql`.
 
+### Что Claude может запускать сам
+
+Правила в `.claude/settings.json` (короткая форма `docker compose -p logger-test ...` и полная из Makefile с `--env-file .env.test -f ...`):
+
+- Без подтверждения: `ps`, `logs`, `config`, `top`, `images`, `exec app pytest` (в т.ч. `exec -T`), а также `make test-up`, `make test-down`, `make test-ps`, `make pytest`, `make loadgen`.
+- Запрещено: `down -v` / `down --volumes`, любой `exec db ...`, `make test-reset`, `docker volume rm logger-test_*` (человек может запустить `make test-reset` в своём терминале).
+- Всё остальное (`up` напрямую, `restart`, `stop`, `rm`, `run`, `exec app sh`, `exec app python ...`) требует подтверждения.
+- Запись в БД — только через API приложения.
+- Оговорка: правила `deny` префиксные, поэтому это best-effort защита (лишние флаги перед подкомандой меняют префикс). Реальные гарантии — read-only роль `claude_ro` и недоступность прода.
+
 ## Цикл работы
 
 1. Изменить код в `src/app/` — uvicorn в тесте перезагрузится сам.

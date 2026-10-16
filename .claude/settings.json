@@ -1,5 +1,7 @@
 {
-  "enabledMcpjsonServers": ["grafana-test"],
+  "enabledMcpjsonServers": [
+    "grafana-test"
+  ],
   "permissions": {
     "allow": [
       "mcp__grafana-test",
@@ -8,7 +10,20 @@
       "Bash(make test-ps)",
       "Bash(make pytest)",
       "Bash(make loadgen:*)",
-      "Bash(docker compose -p logger-test:*)",
+      "Bash(docker compose -p logger-test ps:*)",
+      "Bash(docker compose -p logger-test logs:*)",
+      "Bash(docker compose -p logger-test config:*)",
+      "Bash(docker compose -p logger-test top:*)",
+      "Bash(docker compose -p logger-test images:*)",
+      "Bash(docker compose -p logger-test exec app pytest:*)",
+      "Bash(docker compose -p logger-test exec -T app pytest:*)",
+      "Bash(docker compose -p logger-test --env-file .env.test -f docker-compose.yml -f docker-compose.test.yml ps:*)",
+      "Bash(docker compose -p logger-test --env-file .env.test -f docker-compose.yml -f docker-compose.test.yml logs:*)",
+      "Bash(docker compose -p logger-test --env-file .env.test -f docker-compose.yml -f docker-compose.test.yml config:*)",
+      "Bash(docker compose -p logger-test --env-file .env.test -f docker-compose.yml -f docker-compose.test.yml top:*)",
+      "Bash(docker compose -p logger-test --env-file .env.test -f docker-compose.yml -f docker-compose.test.yml images:*)",
+      "Bash(docker compose -p logger-test --env-file .env.test -f docker-compose.yml -f docker-compose.test.yml exec app pytest:*)",
+      "Bash(docker compose -p logger-test --env-file .env.test -f docker-compose.yml -f docker-compose.test.yml exec -T app pytest:*)",
       "Bash(curl -s http://127.0.0.1:8000:*)",
       "Bash(curl -s http://localhost:8000:*)"
     ],
@@ -17,7 +32,17 @@
       "Edit(./.env.prod)",
       "Bash(make prod-:*)",
       "Bash(docker compose -p logger-prod:*)",
-      "Bash(cat .env.prod:*)"
+      "Bash(cat .env.prod:*)",
+      "Bash(docker compose -p logger-test down -v:*)",
+      "Bash(docker compose -p logger-test down --volumes:*)",
+      "Bash(docker compose -p logger-test exec db:*)",
+      "Bash(docker compose -p logger-test exec -T db:*)",
+      "Bash(docker compose -p logger-test --env-file .env.test -f docker-compose.yml -f docker-compose.test.yml down -v:*)",
+      "Bash(docker compose -p logger-test --env-file .env.test -f docker-compose.yml -f docker-compose.test.yml down --volumes:*)",
+      "Bash(docker compose -p logger-test --env-file .env.test -f docker-compose.yml -f docker-compose.test.yml exec db:*)",
+      "Bash(docker compose -p logger-test --env-file .env.test -f docker-compose.yml -f docker-compose.test.yml exec -T db:*)",
+      "Bash(make test-reset:*)",
+      "Bash(docker volume rm logger-test_:*)"
     ]
   }
 }
