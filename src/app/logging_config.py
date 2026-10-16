@@ -15,7 +15,7 @@ class RequestIdFilter(logging.Filter):
         return True
 
 
-def setup_logging(level: str, env: str) -> None:
+def setup_logging(level: str, env: str, sql_level: str = "WARNING") -> None:
     handler = logging.StreamHandler(sys.stdout)
     handler.setFormatter(
         JsonFormatter(
@@ -37,4 +37,4 @@ def setup_logging(level: str, env: str) -> None:
         logger.propagate = True
     # Access-лог пишет наш middleware (с request_id и длительностью).
     logging.getLogger("uvicorn.access").disabled = True
-    logging.getLogger("sqlalchemy.engine").setLevel("WARNING")
+    logging.getLogger("sqlalchemy.engine").setLevel(sql_level.upper())

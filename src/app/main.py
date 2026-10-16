@@ -37,7 +37,7 @@ def _resolve_route_path(app: FastAPI, scope) -> str:
 
 def create_app(settings: Settings | None = None) -> FastAPI:
     settings = settings or get_settings()
-    setup_logging(settings.log_level, settings.app_env)
+    setup_logging(settings.log_level, settings.app_env, settings.sql_log_level)
 
     engine = make_engine(settings.database_url)
 
