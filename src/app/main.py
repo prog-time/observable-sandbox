@@ -12,7 +12,7 @@ from starlette.routing import Match
 
 from app.api import customers, debug, orders
 from app.config import Settings, get_settings
-from app.db import Base, get_session, make_engine
+from app.db import get_session, make_engine
 from app.logging_config import request_id_var, setup_logging
 from app.metrics import HTTP_LATENCY, HTTP_REQUESTS
 
@@ -43,7 +43,6 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):
-        Base.metadata.create_all(engine)
         logger.info("application started", extra={"app_env": settings.app_env})
         yield
         engine.dispose()
@@ -51,6 +50,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     app = FastAPI(title="test.logger", lifespan=lifespan)
     app.state.settings = settings
+    app.state.engine = engine
     app.state.session_factory = sessionmaker(engine, expire_on_commit=False)
 
     app.include_router(customers.router)
