@@ -2,6 +2,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.config import Settings
+from app.db import Base
 from app.main import create_app
 
 
@@ -13,7 +14,10 @@ def client():
         enable_debug_endpoints=True,
         log_level="WARNING",
     )
-    with TestClient(create_app(settings), raise_server_exceptions=False) as c:
+    app = create_app(settings)
+    # схему в проде создаёт Alembic; для SQLite in-memory — create_all
+    Base.metadata.create_all(app.state.engine)
+    with TestClient(app, raise_server_exceptions=False) as c:
         yield c
 
 
