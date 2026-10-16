@@ -5,6 +5,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import Depends, FastAPI, Request, Response
 from fastapi.responses import JSONResponse
+from opentelemetry import trace
 from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
 from sqlalchemy import text
 from sqlalchemy.orm import Session, sessionmaker
@@ -15,6 +16,7 @@ from app.config import Settings, get_settings
 from app.db import get_session, make_engine
 from app.logging_config import request_id_var, setup_logging
 from app.metrics import HTTP_LATENCY, HTTP_REQUESTS
+from app.tracing import setup_tracing, shutdown_tracing
 
 logger = logging.getLogger("app")
 
@@ -45,6 +47,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     async def lifespan(app: FastAPI):
         logger.info("application started", extra={"app_env": settings.app_env})
         yield
+        shutdown_tracing(app)
         engine.dispose()
         logger.info("application stopped")
 
@@ -62,6 +65,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     async def observe_requests(request: Request, call_next):
         request_id = request.headers.get("x-request-id") or uuid.uuid4().hex[:16]
         token = request_id_var.set(request_id)
+        trace.get_current_span().set_attribute("request_id", request_id)
         start = time.perf_counter()
         status = 500
         try:
@@ -93,6 +97,10 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                     },
                 )
             request_id_var.reset(token)
+
+    # после регистрации observe_requests: OTel-middleware добавляется последним и оказывается внешним,
+    # поэтому серверный спан уже активен внутри observe_requests
+    setup_tracing(app, engine, settings)
 
     @app.get("/health", tags=["system"])
     def health(session: Session = Depends(get_session)):
